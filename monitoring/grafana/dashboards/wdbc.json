@@ -1,0 +1,180 @@
+{
+  "uid": "ddm501-t04",
+  "title": "WDBC API \u2014 Tutorial 04",
+  "tags": [
+    "ddm501",
+    "tutorial-04"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "5s",
+  "time": {
+    "from": "now-15m",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Predictions per second, by outcome",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ddm501-prom"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 8
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (outcome) (rate(wdbc_predictions_total[1m]))",
+          "legendFormat": "{{outcome}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ddm501-prom"
+          }
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Error share",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ddm501-prom"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 8
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(wdbc_errors_total[1m])) / (sum(rate(wdbc_errors_total[1m])) + sum(rate(wdbc_predictions_total[1m])))",
+          "legendFormat": "errors",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ddm501-prom"
+          }
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Latency p50 / p95 / p99",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ddm501-prom"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 8
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum(rate(wdbc_prediction_latency_seconds_bucket[1m])) by (le))",
+          "legendFormat": "p95",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ddm501-prom"
+          }
+        },
+        {
+          "refId": "p50",
+          "legendFormat": "p50",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ddm501-prom"
+          },
+          "expr": "histogram_quantile(0.5, sum(rate(wdbc_prediction_latency_seconds_bucket[1m])) by (le))"
+        },
+        {
+          "refId": "p99",
+          "legendFormat": "p99",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ddm501-prom"
+          },
+          "expr": "histogram_quantile(0.99, sum(rate(wdbc_prediction_latency_seconds_bucket[1m])) by (le))"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Share of predictions that are malignant",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ddm501-prom"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 8
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "wdbc_malignant_share",
+          "legendFormat": "malignant share",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ddm501-prom"
+          }
+        }
+      ]
+    }
+  ]
+}

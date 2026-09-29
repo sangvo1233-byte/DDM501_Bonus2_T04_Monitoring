@@ -1,0 +1,19 @@
+# What NOT to send to the Docker daemon as build context.
+#
+# Right after a clean checkout this file changes nothing. After you have run
+# the project once locally it saves you sending .venv/ -- which is hundreds of
+# megabytes -- on every single build, and stops a stale local artefact from
+# silently ending up in the image.
+
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.git/
+.gitignore
+/*.md
+models/
+logs/
+.env

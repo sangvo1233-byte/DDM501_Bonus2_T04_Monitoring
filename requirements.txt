@@ -1,0 +1,10 @@
+# Same pins as Lab 1 and Lab 4, plus the Prometheus client.
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+pydantic==2.10.4
+scikit-learn==1.6.0
+numpy==2.2.1
+pandas==2.2.3
+joblib==1.4.2
+prometheus-client==0.21.1
+httpx==0.28.1

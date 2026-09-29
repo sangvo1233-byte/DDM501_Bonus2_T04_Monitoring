@@ -1,0 +1,13 @@
+# Provisioning means the datasource exists the first time Grafana starts, with
+# no clicking. The fixed uid matters: the dashboard JSON refers to the
+# datasource by uid, and a dashboard pointing at a uid that does not exist
+# renders as a row of empty panels with no error worth reading.
+apiVersion: 1
+datasources:
+  - name: Prometheus
+    type: prometheus
+    uid: ddm501-prom
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: false

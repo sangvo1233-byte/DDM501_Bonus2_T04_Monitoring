@@ -1,0 +1,30 @@
+== T04_TRAP=0
+  wdbc_errors_created                           1
+  wdbc_errors_total                             1
+  wdbc_malignant_share                          1
+  wdbc_model_info                               1
+  wdbc_model_loaded                             1
+  wdbc_prediction_latency_seconds_bucket       11
+  wdbc_prediction_latency_seconds_count         1
+  wdbc_prediction_latency_seconds_created       1
+  wdbc_prediction_latency_seconds_sum           1
+  wdbc_predictions_created                      2
+  wdbc_predictions_total                        2
+
+  TOTAL                                        23 time series
+metrics payload bytes: 3248
+== T04_TRAP=1
+  wdbc_errors_created                           1
+  wdbc_errors_total                             1
+  wdbc_malignant_share                          1
+  wdbc_model_info                               1
+  wdbc_model_loaded                             1
+  wdbc_prediction_latency_seconds_bucket       11
+  wdbc_prediction_latency_seconds_count         1
+  wdbc_prediction_latency_seconds_created       1
+  wdbc_prediction_latency_seconds_sum           1
+  wdbc_predictions_created                    326
+  wdbc_predictions_total                      326
+
+  TOTAL                                       671 time series
+metrics payload bytes: 54153

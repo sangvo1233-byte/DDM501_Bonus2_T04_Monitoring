@@ -1,0 +1,11 @@
+apiVersion: 1
+providers:
+  - name: ddm501
+    orgId: 1
+    folder: DDM501
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 10
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards

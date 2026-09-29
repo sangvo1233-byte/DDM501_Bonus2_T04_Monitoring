@@ -1,0 +1,7 @@
+--- 12:20:25 after healthy traffic
+--- 12:27:41 after --broken 0.2
+    HighErrorRate firing
+--- 12:44:56 after --drift 3.0
+    MalignantShareShift firing
+--- 12:47:41 after api stopped
+    ApiDown firing

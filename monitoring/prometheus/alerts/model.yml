@@ -1,0 +1,69 @@
+# Four alerts. Each one is written from a question someone would actually be
+# woken up for -- not from a metric that happened to exist.
+#
+# `for:` is the part beginners skip and then regret. Without it, a single
+# scrape above the threshold pages you; with it, the condition has to hold for
+# the whole window. Almost every false page is a missing `for:`.
+
+groups:
+  - name: wdbc-api
+    rules:
+
+      - alert: ApiDown
+        expr: up{job="wdbc-api"} == 0
+        for: 1m
+        labels: {severity: critical}
+        annotations:
+          summary: "The prediction API is not answering scrapes"
+          description: "Prometheus has failed to scrape {{ $labels.instance }} for 1 minute."
+
+      - alert: ModelNotLoaded
+        expr: wdbc_model_loaded == 0
+        for: 2m
+        labels: {severity: critical}
+        annotations:
+          summary: "API is up but has no model"
+          description: >-
+            The process is answering, so a port check would call it healthy.
+            Every prediction is returning 503.
+
+      - alert: HighErrorRate
+        expr: >-
+          sum(rate(wdbc_errors_total[5m]))
+          /
+          (sum(rate(wdbc_errors_total[5m])) + sum(rate(wdbc_predictions_total[5m])))
+          > 0.05
+        for: 5m
+        labels: {severity: warning}
+        annotations:
+          summary: "More than 5% of requests are failing"
+          description: "Current error share: {{ $value | humanizePercentage }}."
+
+      - alert: SlowPredictions
+        # histogram_quantile reads the _bucket series a Histogram produces. It
+        # is an estimate interpolated between bucket edges, so its accuracy
+        # depends entirely on whether your buckets bracket the values you care
+        # about. Ours stop at 1s; a p95 above that would read as 1s exactly.
+        expr: >-
+          histogram_quantile(
+            0.95,
+            sum(rate(wdbc_prediction_latency_seconds_bucket[5m])) by (le)
+          ) > 0.05
+        for: 10m
+        labels: {severity: warning}
+        annotations:
+          summary: "95th percentile prediction latency above 50 ms"
+          description: "p95 is {{ $value }}s, normally around 2-3 ms."
+
+      - alert: MalignantShareShift
+        # Not an engineering failure. The service is healthy, the latency is
+        # fine, and the answers changed -- which is the failure mode that only
+        # exists for machine learning services.
+        expr: abs(wdbc_malignant_share - 0.37) > 0.15
+        for: 15m
+        labels: {severity: warning}
+        annotations:
+          summary: "Share of malignant predictions has moved a long way"
+          description: >-
+            Now {{ $value | humanizePercentage }} against a baseline of 37%.
+            Either the population changed or the inputs did.

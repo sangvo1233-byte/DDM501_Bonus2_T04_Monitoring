@@ -1,0 +1,3 @@
+# python scripts/train_model.py writes model.joblib and model_card.json here.
+# They are not shipped: a model pickled by someone else is a version mismatch
+# waiting to happen -- see Tutorial 02, section 6.
