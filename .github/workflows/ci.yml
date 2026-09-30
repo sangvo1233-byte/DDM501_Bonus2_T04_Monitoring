@@ -26,8 +26,7 @@ jobs:
       - name: Verify registry, drift, scraping and alert delivery
         run: |
           mkdir -p evidence/extended
-          chmod 777 evidence/extended
-          docker compose exec -T api python scripts/verify_stack.py
+          docker compose exec -T --user "$(id -u):$(id -g)" api python scripts/verify_stack.py
           python3 scripts/verify_airflow.py
       - uses: actions/upload-artifact@v4
         if: always()
