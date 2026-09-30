@@ -28,6 +28,9 @@ ERRORS = Counter(
     ["reason"],
 )
 
+CAPTURE_FAILURES = Counter(
+    "wdbc_monitor_capture_failures_total", "Predictions not captured by the drift monitor.")
+
 
 # ------------------------------------------------------------- HISTOGRAM
 # Buckets, not an average. An average latency of 40 ms is consistent with

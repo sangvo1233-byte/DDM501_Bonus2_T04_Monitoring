@@ -1,0 +1,116 @@
+{
+  "timestamp_utc": "2026-09-30T01:07:17.120315+00:00",
+  "telegram": "not executed",
+  "services": {
+    "api": {
+      "status": "ok",
+      "model_loaded": true,
+      "version": "3"
+    },
+    "evidently": {
+      "status": "ok",
+      "reference_rows": 452,
+      "current_rows": 0
+    },
+    "notifier": {
+      "status": "ok",
+      "telegram_enabled": false
+    }
+  },
+  "quality_gate": {
+    "rejected": {
+      "candidate": "dummy",
+      "version": "5",
+      "run_id": "cfaf9008e9c046fcbbd44f082f977c7a",
+      "test_roc_auc": 0.5,
+      "previous_auc": 0.99738,
+      "promoted": false
+    },
+    "accepted": {
+      "candidate": "logistic",
+      "version": "6",
+      "run_id": "3b97f92038ef48dcb056943b480731a3",
+      "test_roc_auc": 0.99738,
+      "previous_auc": 0.99738,
+      "promoted": true
+    },
+    "rejection_preserved_champion": true,
+    "promotion_reloaded_api": true
+  },
+  "normal": {
+    "dataset_drift": false,
+    "share_of_drifted_columns": 0.0,
+    "number_of_drifted_columns": 0,
+    "reference_rows": 452,
+    "current_rows": 198,
+    "report": "/reports/drift-20260930T010719519331Z.html",
+    "timestamp": "20260930T010719519331Z"
+  },
+  "drift_3sigma": {
+    "dataset_drift": true,
+    "share_of_drifted_columns": 1.0,
+    "number_of_drifted_columns": 30,
+    "reference_rows": 452,
+    "current_rows": 200,
+    "report": "/reports/drift-20260930T010721090000Z.html",
+    "timestamp": "20260930T010721090000Z"
+  },
+  "prometheus_drift_alert": [
+    {
+      "labels": {
+        "alertname": "FeatureDriftDetected",
+        "instance": "evidently:8001",
+        "job": "evidently",
+        "severity": "warning"
+      },
+      "annotations": {
+        "summary": "Evidently detected drift in at least 30% of WDBC features"
+      },
+      "state": "firing",
+      "activeAt": "2026-09-30T01:07:25.411932677Z",
+      "value": "1e+00"
+    }
+  ],
+  "webhook_firing": [
+    {
+      "timestamp": "2026-09-30T01:08:05.365564+00:00",
+      "source": "alertmanager",
+      "status": "firing",
+      "text": "[FIRING] FeatureDriftDetected",
+      "delivery": "local"
+    }
+  ],
+  "recovery": {
+    "dataset_drift": false,
+    "share_of_drifted_columns": 0.0,
+    "number_of_drifted_columns": 0,
+    "reference_rows": 452,
+    "current_rows": 200,
+    "report": "/reports/drift-20260930T010806759472Z.html",
+    "timestamp": "20260930T010806759472Z"
+  },
+  "webhook_resolved": [
+    {
+      "timestamp": "2026-09-30T01:08:25.364772+00:00",
+      "source": "alertmanager",
+      "status": "resolved",
+      "text": "[RESOLVED] FeatureDriftDetected",
+      "delivery": "local"
+    }
+  ],
+  "scrapes": [
+    {
+      "job": "evidently",
+      "health": "up"
+    },
+    {
+      "job": "prometheus",
+      "health": "up"
+    },
+    {
+      "job": "wdbc-api",
+      "health": "up"
+    }
+  ],
+  "success": true
+}

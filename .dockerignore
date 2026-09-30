@@ -17,3 +17,7 @@ __pycache__/
 models/
 logs/
 .env
+.env.*
+runtime/
+evidence/
+mlruns/

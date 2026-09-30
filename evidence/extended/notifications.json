@@ -1,0 +1,135 @@
+[
+  {
+    "timestamp": "2026-09-30T00:57:57.636442+00:00",
+    "source": "airflow",
+    "status": "event",
+    "text": "[HEALTH OK] {'api': True, 'evidently': True, 'mlflow': True}",
+    "delivery": "local"
+  },
+  {
+    "timestamp": "2026-09-30T00:59:12.958823+00:00",
+    "source": "airflow",
+    "status": "event",
+    "text": "[HEALTH OK] {'api': True, 'evidently': True, 'mlflow': True}",
+    "delivery": "local"
+  },
+  {
+    "timestamp": "2026-09-30T00:59:30.514009+00:00",
+    "source": "alertmanager",
+    "status": "firing",
+    "text": "[FIRING] FeatureDriftDetected",
+    "delivery": "local"
+  },
+  {
+    "timestamp": "2026-09-30T00:59:50.768690+00:00",
+    "source": "alertmanager",
+    "status": "resolved",
+    "text": "[RESOLVED] FeatureDriftDetected",
+    "delivery": "local"
+  },
+  {
+    "timestamp": "2026-09-30T01:00:08.832381+00:00",
+    "source": "airflow",
+    "status": "event",
+    "text": "[DRIFT] detected=False, share=0.0",
+    "delivery": "local"
+  },
+  {
+    "timestamp": "2026-09-30T01:00:12.850591+00:00",
+    "source": "airflow",
+    "status": "event",
+    "text": "[HEALTH OK] {'api': True, 'evidently': True, 'mlflow': True}",
+    "delivery": "local"
+  },
+  {
+    "timestamp": "2026-09-30T01:00:49.526519+00:00",
+    "source": "airflow",
+    "status": "event",
+    "text": "[HEALTH OK] {'api': True, 'evidently': True, 'mlflow': True}",
+    "delivery": "local"
+  },
+  {
+    "timestamp": "2026-09-30T01:03:20.372463+00:00",
+    "source": "alertmanager",
+    "status": "firing",
+    "text": "[FIRING] ApiDown",
+    "delivery": "local"
+  },
+  {
+    "timestamp": "2026-09-30T01:03:20.376374+00:00",
+    "source": "alertmanager",
+    "status": "firing",
+    "text": "[FIRING] DriftMonitorDown",
+    "delivery": "local"
+  },
+  {
+    "timestamp": "2026-09-30T01:03:48.440509+00:00",
+    "source": "alertmanager",
+    "status": "resolved",
+    "text": "[RESOLVED] ApiDown",
+    "delivery": "local"
+  },
+  {
+    "timestamp": "2026-09-30T01:03:48.441324+00:00",
+    "source": "alertmanager",
+    "status": "resolved",
+    "text": "[RESOLVED] DriftMonitorDown",
+    "delivery": "local"
+  },
+  {
+    "timestamp": "2026-09-30T01:08:05.365564+00:00",
+    "source": "alertmanager",
+    "status": "firing",
+    "text": "[FIRING] FeatureDriftDetected",
+    "delivery": "local"
+  },
+  {
+    "timestamp": "2026-09-30T01:08:25.364772+00:00",
+    "source": "alertmanager",
+    "status": "resolved",
+    "text": "[RESOLVED] FeatureDriftDetected",
+    "delivery": "local"
+  },
+  {
+    "timestamp": "2026-09-30T01:08:51.727449+00:00",
+    "source": "airflow",
+    "status": "event",
+    "text": "[HEALTH OK] {'api': True, 'evidently': True, 'mlflow': True}",
+    "delivery": "local"
+  },
+  {
+    "timestamp": "2026-09-30T01:08:58.303373+00:00",
+    "source": "airflow",
+    "status": "event",
+    "text": "[RETRAIN] version=7, auc=0.5, promoted=False",
+    "delivery": "local"
+  },
+  {
+    "timestamp": "2026-09-30T01:09:05.037958+00:00",
+    "source": "airflow",
+    "status": "event",
+    "text": "[DRIFT] detected=False, share=0.0",
+    "delivery": "local"
+  },
+  {
+    "timestamp": "2026-09-30T01:09:13.772726+00:00",
+    "source": "airflow",
+    "status": "event",
+    "text": "[DRIFT] detected=True, share=1.0",
+    "delivery": "local"
+  },
+  {
+    "timestamp": "2026-09-30T01:09:20.941905+00:00",
+    "source": "airflow",
+    "status": "event",
+    "text": "[RETRAIN] version=8, auc=0.99738, promoted=True",
+    "delivery": "local"
+  },
+  {
+    "timestamp": "2026-09-30T01:10:00.356197+00:00",
+    "source": "alertmanager",
+    "status": "firing",
+    "text": "[FIRING] FeatureDriftDetected",
+    "delivery": "local"
+  }
+]

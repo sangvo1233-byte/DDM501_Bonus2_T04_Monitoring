@@ -1,3 +1,11 @@
 .venv/
 __pycache__/
 models/*.joblib
+.env
+.env.*
+!.env.example
+.pytest_cache/
+.coverage
+runtime/
+mlruns/
+*.db

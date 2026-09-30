@@ -4,6 +4,7 @@ Breast cancer diagnosis API — the service Tutorial 04 watches.
 Run:  uvicorn app.main:app --host 0.0.0.0 --port 8000
 """
 import json
+import os
 import time
 from collections import deque
 from pathlib import Path
@@ -11,13 +12,17 @@ from typing import Dict, List
 
 import joblib
 import pandas as pd
-from fastapi import FastAPI, HTTPException
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException
+from fastapi.exceptions import RequestValidationError
+from fastapi.exception_handlers import request_validation_exception_handler
 from fastapi.responses import PlainTextResponse
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, FiniteFloat
+import httpx
 
-from app.metrics import (ERRORS, LATENCY, MALIGNANT_SHARE, MODEL_INFO,
+from app.metrics import (CAPTURE_FAILURES, ERRORS, LATENCY, MALIGNANT_SHARE, MODEL_INFO,
                          MODEL_LOADED, PREDICTIONS, TRAP)
+from app.ops import require_ops
 
 ROOT = Path(__file__).resolve().parents[1]
 MODELS = ROOT / "models"
@@ -31,21 +36,54 @@ recent: deque = deque(maxlen=WINDOW)
 
 
 class PredictRequest(BaseModel):
-    sample_id: str = Field(..., examples=["WDBC-0001"])
-    features: Dict[str, float]
+    sample_id: str = Field(..., min_length=1, max_length=80, examples=["WDBC-0001"])
+    features: Dict[str, FiniteFloat]
+
+
+def install_model(model, card):
+    state["bundle"] = (model, card)
+    state["model"] = model
+    state["card"] = card
+    MODEL_LOADED.set(1)
+    MODEL_INFO.clear()
+    MODEL_INFO.labels(version=card["version"], sklearn_version=card["sklearn_version"]).set(1)
 
 
 @app.on_event("startup")
 def load_model() -> None:
+    if os.getenv("MLFLOW_TRACKING_URI"):
+        from app.registry import champion, retrain
+        loaded = champion()
+        if loaded is None:
+            result = retrain()
+            if not result["promoted"]:
+                raise RuntimeError("initial model failed the quality gate")
+            loaded = champion()
+        install_model(*loaded)
+        return
     path = MODELS / "model.joblib"
     if not path.exists():
         MODEL_LOADED.set(0)
         return
-    state["model"] = joblib.load(path)
-    state["card"] = json.loads((MODELS / "model_card.json").read_text())
-    MODEL_LOADED.set(1)
-    MODEL_INFO.labels(version=state["card"]["version"],
-                      sklearn_version=state["card"]["sklearn_version"]).set(1)
+    install_model(joblib.load(path), json.loads((MODELS / "model_card.json").read_text()))
+
+
+@app.exception_handler(RequestValidationError)
+async def invalid_request(request, exc):
+    ERRORS.labels(reason="invalid_request").inc()
+    return await request_validation_exception_handler(request, exc)
+
+
+def capture(features):
+    url = os.getenv("EVIDENTLY_URL")
+    if not url:
+        return
+    try:
+        response = httpx.post(url + "/capture", json={"features": features}, timeout=2,
+                              headers={"X-Ops-Token": os.getenv("OPS_TOKEN", "tutorial-local-only")})
+        response.raise_for_status()
+    except httpx.HTTPError:
+        CAPTURE_FAILURES.inc()
 
 
 @app.get("/health")
@@ -59,12 +97,14 @@ def health() -> dict:
 
 
 @app.post("/predict")
-def predict(req: PredictRequest) -> dict:
-    if state["model"] is None:
+def predict(req: PredictRequest, background: BackgroundTasks) -> dict:
+    # Read one tuple so a concurrent reload cannot mix model and feature metadata.
+    model, card = state.get("bundle", (state["model"], state["card"]))
+    if model is None:
         ERRORS.labels(reason="model_not_loaded").inc()
         raise HTTPException(status_code=503, detail="model not loaded")
 
-    features: List[str] = state["card"]["features"]
+    features: List[str] = card["features"]
     missing = [f for f in features if f not in req.features]
     if missing:
         ERRORS.labels(reason="missing_features").inc()
@@ -76,7 +116,7 @@ def predict(req: PredictRequest) -> dict:
     # is supposed to mean.
     start = time.perf_counter()
     frame = pd.DataFrame([[req.features[f] for f in features]], columns=features)
-    probability = float(state["model"].predict_proba(frame)[0, 1])
+    probability = float(model.predict_proba(frame)[0, 1])
     LATENCY.observe(time.perf_counter() - start)
 
     outcome = "malignant" if probability >= THRESHOLD else "benign"
@@ -88,10 +128,26 @@ def predict(req: PredictRequest) -> dict:
 
     recent.append(1 if outcome == "malignant" else 0)
     MALIGNANT_SHARE.set(sum(recent) / len(recent))
+    background.add_task(capture, {f: req.features[f] for f in features})
 
     return {"sample_id": req.sample_id, "probability": round(probability, 6),
             "outcome": outcome, "threshold": THRESHOLD,
-            "model_version": state["card"]["version"]}
+            "model_version": card["version"]}
+
+
+class RetrainRequest(BaseModel):
+    candidate: str = Field(default="logistic", pattern="^(logistic|dummy)$")
+
+
+@app.post("/ops/retrain", dependencies=[Depends(require_ops)])
+def retrain_model(request: RetrainRequest):
+    if not os.getenv("MLFLOW_TRACKING_URI"):
+        raise HTTPException(status_code=503, detail="MLflow registry is not configured")
+    from app.registry import champion, retrain
+    result = retrain(request.candidate)
+    if result["promoted"]:
+        install_model(*champion())
+    return result
 
 
 @app.get("/metrics")

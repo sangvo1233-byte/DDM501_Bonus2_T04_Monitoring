@@ -1,0 +1,18 @@
+Checking /etc/prometheus/prometheus.yml
+  SUCCESS: 2 rule files found
+ SUCCESS: /etc/prometheus/prometheus.yml is valid prometheus config file syntax
+
+Checking /etc/prometheus/alerts/drift.yml
+  SUCCESS: 2 rules found
+
+Checking /etc/prometheus/alerts/model.yml
+  SUCCESS: 5 rules found
+
+Checking '/etc/alertmanager/alertmanager.yml'  SUCCESS
+Found:
+ - global config
+ - route
+ - 0 inhibit rules
+ - 1 receivers
+ - 0 templates
+

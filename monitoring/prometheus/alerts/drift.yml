@@ -1,0 +1,15 @@
+groups:
+  - name: feature-drift
+    rules:
+      - alert: FeatureDriftDetected
+        expr: evidently_data_drift_detected == 1
+        for: 30s
+        labels: {severity: warning}
+        annotations:
+          summary: "Evidently detected drift in at least 30% of WDBC features"
+      - alert: DriftMonitorDown
+        expr: up{job="evidently"} == 0
+        for: 1m
+        labels: {severity: critical}
+        annotations:
+          summary: "The feature-drift monitor is not answering scrapes"

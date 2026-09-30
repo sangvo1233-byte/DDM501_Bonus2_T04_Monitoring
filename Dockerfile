@@ -12,6 +12,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY app/ ./app/
 COPY scripts/ ./scripts/
 COPY data/ ./data/
+COPY tests/ ./tests/
 
 #   1. `docker compose up --build` works from a clean checkout
 #   2. The pickle is written by exactly the scikit-learn version installed one
@@ -22,6 +23,8 @@ COPY data/ ./data/
 RUN python scripts/train_model.py && test -f models/model.joblib
 
 RUN useradd --create-home --uid 1000 appuser && chown -R appuser:appuser /app
+RUN mkdir -p /app/runtime/reports /app/runtime/notifications /mlflow \
+    && chown -R appuser:appuser /mlflow /app/runtime
 USER appuser
 
 EXPOSE 8000

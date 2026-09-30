@@ -1,0 +1,42 @@
+name: Bonus 2 CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compose and alert configuration
+        run: |
+          docker compose config --quiet
+          docker run --rm --entrypoint /bin/promtool -v "$PWD/monitoring/prometheus:/etc/prometheus:ro" prom/prometheus:v2.51.2 check config /etc/prometheus/prometheus.yml
+          docker run --rm --entrypoint /bin/amtool -v "$PWD/monitoring/alertmanager:/etc/alertmanager:ro" prom/alertmanager:v0.27.0 check-config /etc/alertmanager/alertmanager.yml
+      - name: Build and regression tests
+        run: |
+          docker compose build api
+          docker run --rm --entrypoint python ddm501-bonus2-app:20260930 -m pytest -q tests/
+      - name: Check all Airflow DAGs import
+        run: |
+          docker run --rm --entrypoint python -v "$PWD/dags:/opt/airflow/dags:ro" apache/airflow:2.10.2-python3.11 -c "from airflow.models import DagBag; b=DagBag('/opt/airflow/dags',include_examples=False); assert not b.import_errors,b.import_errors; assert set(b.dags)=={'service_health_check','drift_monitoring','model_retrain'}"
+      - name: Start services
+        run: docker compose up -d --wait --wait-timeout 300
+      - name: Verify registry, drift, scraping and alert delivery
+        run: |
+          mkdir -p evidence/extended
+          chmod 777 evidence/extended
+          docker compose exec -T api python scripts/verify_stack.py
+          python3 scripts/verify_airflow.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: runtime-evidence
+          path: evidence/extended/
+      - name: Logs on failure
+        if: failure()
+        run: docker compose logs --tail=80
+      - name: Teardown
+        if: always()
+        run: docker compose down -v

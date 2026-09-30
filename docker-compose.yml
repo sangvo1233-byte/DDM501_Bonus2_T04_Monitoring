@@ -7,24 +7,32 @@
 #   Grafana     http://127.0.0.1:13000     (anonymous viewer, no login)
 #
 
-name: ddm501-t04
+name: ddm501-bonus2
 
 services:
   api:
     build: .
-    container_name: ddm501-t04-api
+    image: ddm501-bonus2-app:20260930
+    volumes: ["./evidence/extended:/app/evidence/extended"]
     ports:
-      - "18000:8000"
+      - "127.0.0.1:18000:8000"
     environment:
       T04_TRAP: "0"
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+      EVIDENTLY_URL: http://evidently:8001
+      OPS_TOKEN: ${OPS_TOKEN:-tutorial-local-only}
+    depends_on:
+      mlflow:
+        condition: service_healthy
+      evidently:
+        condition: service_healthy
     networks: [monitoring]
     restart: unless-stopped
 
   prometheus:
     image: prom/prometheus:v2.51.2
-    container_name: ddm501-t04-prometheus
     ports:
-      - "19090:9090"
+      - "127.0.0.1:19090:9090"
     volumes:
       - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./monitoring/prometheus/alerts:/etc/prometheus/alerts:ro
@@ -44,9 +52,8 @@ services:
 
   grafana:
     image: grafana/grafana:10.4.2
-    container_name: ddm501-t04-grafana
     ports:
-      - "13000:3000"
+      - "127.0.0.1:13000:3000"
     volumes:
       - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
       - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
@@ -61,6 +68,97 @@ services:
     depends_on: [prometheus]
     restart: unless-stopped
 
+  mlflow:
+    image: ddm501-bonus2-app:20260930
+    command: mlflow server --backend-store-uri sqlite:////mlflow/mlflow.db --serve-artifacts --artifacts-destination /mlflow/artifacts --default-artifact-root mlflow-artifacts:/ --host 0.0.0.0 --port 5000 --workers 1
+    ports: ["127.0.0.1:15010:5000"]
+    volumes: ["registry_data:/mlflow"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/health',timeout=5)"]
+      interval: 5s
+      timeout: 10s
+      retries: 30
+    networks: [monitoring]
+
+  evidently:
+    image: ddm501-bonus2-app:20260930
+    command: uvicorn app.drift:app --host 0.0.0.0 --port 8001
+    environment:
+      OPS_TOKEN: ${OPS_TOKEN:-tutorial-local-only}
+      REPORTS_DIR: /app/runtime/reports
+    ports: ["127.0.0.1:18001:8001"]
+    volumes: ["reports_data:/app/runtime/reports"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/health',timeout=5)"]
+      interval: 5s
+      timeout: 10s
+      retries: 30
+    networks: [monitoring]
+
+  notifier:
+    image: ddm501-bonus2-app:20260930
+    command: uvicorn app.notifications:app --host 0.0.0.0 --port 8002
+    environment:
+      OPS_TOKEN: ${OPS_TOKEN:-tutorial-local-only}
+      NOTIFICATION_STORE: /app/runtime/notifications/events.jsonl
+      TELEGRAM_ENABLED: ${TELEGRAM_ENABLED:-0}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
+    ports: ["127.0.0.1:18002:8002"]
+    volumes: ["notifications_data:/app/runtime/notifications"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8002/health',timeout=5)"]
+      interval: 5s
+      timeout: 10s
+      retries: 20
+    networks: [monitoring]
+
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    command: ["--config.file=/etc/alertmanager/alertmanager.yml", "--storage.path=/alertmanager"]
+    ports: ["127.0.0.1:19093:9093"]
+    volumes:
+      - ./monitoring/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager_data:/alertmanager
+    depends_on:
+      notifier:
+        condition: service_healthy
+    networks: [monitoring]
+
+  airflow:
+    image: apache/airflow:2.10.2-python3.11
+    command: standalone
+    environment:
+      AIRFLOW_HOME: /opt/airflow
+      AIRFLOW__CORE__DAGS_FOLDER: /opt/airflow/dags
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "false"
+      AIRFLOW__API__AUTH_BACKENDS: airflow.api.auth.backend.basic_auth,airflow.api.auth.backend.session
+      AIRFLOW__WEBSERVER__WORKERS: "1"
+      AIRFLOW__SCHEDULER__PARSING_PROCESSES: "1"
+      AIRFLOW__CORE__PARALLELISM: "1"
+      API_URL: http://api:8000
+      EVIDENTLY_URL: http://evidently:8001
+      MLFLOW_URL: http://mlflow:5000
+      NOTIFIER_URL: http://notifier:8002
+      OPS_TOKEN: ${OPS_TOKEN:-tutorial-local-only}
+    ports: ["127.0.0.1:18081:8080"]
+    volumes:
+      - airflow_data:/opt/airflow
+      - ./dags:/opt/airflow/dags:ro
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/health',timeout=5)"]
+      interval: 10s
+      timeout: 10s
+      retries: 30
+      start_period: 60s
+    depends_on:
+      api:
+        condition: service_healthy
+      notifier:
+        condition: service_healthy
+    networks: [monitoring]
+
 networks:
   monitoring:
     driver: bridge
@@ -68,3 +166,8 @@ networks:
 volumes:
   prometheus_data:
   grafana_data:
+  registry_data:
+  reports_data:
+  notifications_data:
+  alertmanager_data:
+  airflow_data:

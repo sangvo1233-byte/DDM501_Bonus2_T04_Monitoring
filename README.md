@@ -1,72 +1,106 @@
-# Tutorial 04 — Prometheus and Grafana
+# DDM501 Bonus 2 — WDBC monitoring and guarded retraining
 
-**DDM501 — AI in DevOps, DataOps, MLOps · FSB, FPT University**
+Võ Minh Sang · 25MS13286
 
+This extends the course Tutorial 04 WDBC starter. It connects model versioning,
+feature drift, orchestration and alert delivery while preserving the original
+prediction contract and historical T04 evidence.
 
-## What this tutorial is for
+## Architecture
 
-The lab hands you finished dashboards and alert rules and has you fill in the instrumentation. Here you start from a service with **no metrics at all** and add them one at a time, asking each time what question the new metric answers.
-
-## Setup
-
-**With Docker** — needed for Prometheus and Grafana
-
-```bash
-docker compose up --build
+```mermaid
+flowchart LR
+    Data[WDBC fixed train/test split] --> Train[Candidate training + AUC gate]
+    Train --> Registry[MLflow registry + artifact server]
+    Registry --> API[FastAPI champion model]
+    API --> Monitor[Evidently feature drift + HTML reports]
+    API --> Prom[Prometheus]
+    Monitor --> Prom
+    Prom --> Grafana
+    Prom --> AM[Alertmanager]
+    AM --> Receiver[Local webhook receipt]
+    Receiver -. optional, disabled by default .-> Telegram
+    Airflow --> Train
+    Airflow --> Monitor
+    Airflow --> Receiver
 ```
 
-The model is trained *inside* the image build
-Re-training means re-building — correct, because the model is a build artefact,
-and it also guarantees the pickle matches the scikit-learn version in the image.
+MLflow uses SQLite and a named volume for artifacts. Airflow uses `standalone`
+with the SequentialExecutor. These choices suit a local coursework demo; this
+repo does not claim a production deployment. PostgreSQL, MinIO and extra workers
+are unnecessary for the behavior demonstrated here.
 
-**Without Docker**  
+## Run from a clean checkout
 
-```bash
-python3.11 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-python scripts/train_model.py          # once
-uvicorn app.main:app --port 8000
-```
-
-| | URL | Note |
-|---|---|---|
-| API | <http://127.0.0.1:18000/docs> | 8000 without Docker |
-| Prometheus | <http://127.0.0.1:19090> | Status → Targets shows `wdbc-api` UP; compose waits for the API to be *healthy* before starting Prometheus, so it should be UP on the first look |
-| Grafana | <http://127.0.0.1:13000> | anonymous viewer, dashboard `DDM501 / WDBC API` |
-
-## Making something to look at
-
-569 rows in a file draw no graphs. Leave this running in its own terminal:
+Docker Desktop must use Linux containers; allow at least 6 GB RAM.
 
 ```bash
-python scripts/traffic.py --rps 20 --seconds 300
-python scripts/traffic.py --broken 0.2        # 20% malformed requests
-python scripts/traffic.py --drift 3.0         # shift every input by 3 sigma
+docker compose up -d --build --wait --wait-timeout 300
+docker compose exec -T api python -m pytest -q tests/
+docker compose exec -T api python scripts/verify_stack.py
+python scripts/verify_airflow.py
 ```
 
-## The exercises
+The last command runs on the host and needs only Python's standard library.
+Run it after `verify_stack.py`, which leaves a normal feature window.
 
-| | Do this | Look for |
-|---|---|---|
-| 1 | `curl localhost:8000/metrics` | The whole contract with Prometheus, in plain text. Read it once. |
-| 2 | Traffic, then `python scripts/count_series.py` | 23 time series. Remember the number. |
-| 3 | `python scripts/traffic.py --broken 0.2` | `wdbc_errors_total{reason="missing_features"}` climbs; the error-share panel moves. |
-| 4 | `python scripts/traffic.py --drift 3.0` | Latency unchanged, error rate unchanged, `wdbc_malignant_share` moves a long way. Nothing is broken and the answers changed. |
-| 5 | Restart with `T04_TRAP=1`, send traffic, run `count_series.py` again | 639 series instead of 23, for the same requests. |
+The image trains a local fallback model during build. With Compose, API startup
+registers the initial model in MLflow and loads the `champion` alias. No local
+virtual environment, downloaded dataset or prebuilt model is needed.
 
-## Checklist
+| Service | Local URL |
+|---|---|
+| Prediction API | http://127.0.0.1:18000/docs |
+| MLflow registry | http://127.0.0.1:15010 |
+| Evidently and reports | http://127.0.0.1:18001/docs |
+| Alert receiver | http://127.0.0.1:18002/docs |
+| Prometheus | http://127.0.0.1:19090 |
+| Alertmanager | http://127.0.0.1:19093 |
+| Grafana | http://127.0.0.1:13000 (anonymous viewer) |
+| Airflow | http://127.0.0.1:18081 |
 
-1. Why is a Counter almost never read directly, and what do you wrap it in?
-2. Your average latency is 40 ms. Name two very different situations that both
-   produce that number, and say which metric type tells them apart.
-3. `wdbc_model_info` is a gauge permanently stuck at 1. What is it for?
-4. Every alert in `monitoring/prometheus/alerts/model.yml` has a `for:` clause.
-   What breaks if you remove them?
-5. The trap in exercise 5 turned 23 series into 639. What was the label, and
-   why is the number unbounded rather than merely large?
-6. During the `--drift 3.0` run, which of the four dashboard panels moved and
-   which did not? What kind of failure is that, and would a normal web-service
-   alert have caught it?
----
+All published ports bind to localhost. Airflow creates the local `admin` password;
+read it privately with `docker compose exec airflow cat /opt/airflow/standalone_admin_password.txt`.
 
-**Run evidence (Bonus 2, Võ Minh Sang — 25MS13286):** see [EVIDENCE.md](EVIDENCE.md). It covers the four stages of section 5 with alerts firing, and the cardinality experiment from section 6 (23 vs 671 series).
+## What the extension does
+
+- **Quality gate:** a candidate must achieve holdout ROC AUC >= 0.95 and must not
+  trail the current champion by more than 0.005. Every candidate is tracked and
+  registered; rejection preserves the champion alias and the serving model.
+  The `dummy` candidate deliberately obtains AUC 0.5 to demonstrate rejection.
+- **Fixed evaluation:** clean the supplied WDBC CSV, split 80/20 with stratification
+  and seed 42. Retraining uses the same source and holdout; it does not claim to
+  correct drift in a changed population without new labeled data.
+- **Feature drift:** Evidently compares the last 200 captured predictions with
+  the training reference. At least 100 samples are required; drift is detected
+  when at least 30% of input features drift. The buffer holds at most 1,000 rows.
+  This is separate from the original malignant-prediction-share alert.
+- **Airflow:** `service_health_check` every 15 minutes; `drift_monitoring` hourly;
+  `model_retrain` manually or after detected drift. Failure callbacks and result
+  summaries are sent to the local receiver. An empty drift window skips analysis.
+- **Alert delivery:** Prometheus -> Alertmanager -> local webhook, including firing
+  and resolved events. Requests are persisted in a dedicated volume.
+- **Grafana:** original T04 dashboard plus `WDBC Feature Drift and Registry`.
+- **CI:** checks configs, regression tests, DAG imports and the complete Docker
+  integration path. It uploads the measured runtime evidence.
+
+## Operations and optional Telegram
+
+`/ops/retrain`, drift capture/analysis and notification history require
+`X-Ops-Token`. The documented local default is `tutorial-local-only`; change
+`OPS_TOKEN` via `.env` if needed. `.env` is ignored by Git.
+
+Telegram is **disabled and not required for verification**. To opt in, copy
+`.env.example` to `.env`, populate the bot token and chat ID privately, set
+`TELEGRAM_ENABLED=1`, then recreate the notifier. A delivery is recorded as
+`telegram` only after Telegram returns success. Current evidence uses `local`;
+it does not claim a real Telegram message was sent.
+
+## Evidence and provenance
+
+[Historical T04 run and extension results](EVIDENCE.md).
+[Measured extension checks](evidence/extended/runtime-checks.json).
+
+The data/API baseline comes from the supplied `DDM501_T04_Monitoring.pdf` and
+`ddm501-t04-monitoring` starter. The supplied `ml-monitoring-full-version` starter
+provides the feature-drift design reference.

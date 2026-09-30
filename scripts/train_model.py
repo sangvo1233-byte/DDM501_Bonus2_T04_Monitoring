@@ -10,6 +10,7 @@ import joblib
 import pandas as pd
 import sklearn
 from sklearn.linear_model import LogisticRegression
+from sklearn.dummy import DummyClassifier
 from sklearn.metrics import roc_auc_score
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import make_pipeline
@@ -22,30 +23,43 @@ MODELS = ROOT / "models"
 DROP = ["sample_id", "diagnosis"]
 
 
-def main() -> None:
+def dataset():
     frame = pd.read_csv(RAW).dropna()
     frame = frame[frame["diagnosis"].isin({"M", "B"})].drop_duplicates("sample_id")
     features = [c for c in frame.columns if c not in DROP]
     X = frame[features]
     y = (frame["diagnosis"] == "M").astype(int)      # 1 = malignant
 
-    X_tr, X_te, y_tr, y_te = train_test_split(
+    return train_test_split(
         X, y, test_size=0.2, stratify=y, random_state=42)
-    model = make_pipeline(StandardScaler(),
-                          LogisticRegression(max_iter=5000, random_state=42))
+
+
+def train_candidate(candidate="logistic"):
+    X_tr, X_te, y_tr, y_te = dataset()
+    estimator = (DummyClassifier(strategy="prior") if candidate == "dummy"
+                 else LogisticRegression(max_iter=5000, random_state=42))
+    model = make_pipeline(StandardScaler(), estimator)
     model.fit(X_tr, y_tr)
     auc = roc_auc_score(y_te, model.predict_proba(X_te)[:, 1])
 
-    MODELS.mkdir(exist_ok=True)
-    joblib.dump(model, MODELS / "model.joblib")
-    (MODELS / "model_card.json").write_text(json.dumps({
+    card = {
         "version": "1.0.0",
         "sklearn_version": sklearn.__version__,
-        "features": features,
+        "features": list(X_tr.columns),
         "train_rows": len(X_tr),
         "test_roc_auc": round(float(auc), 5),
         "positive_class": "M (malignant)",
-    }, indent=2))
+    }
+    return model, card
+
+
+def main() -> None:
+    model, card = train_candidate()
+    MODELS.mkdir(exist_ok=True)
+    joblib.dump(model, MODELS / "model.joblib")
+    (MODELS / "model_card.json").write_text(json.dumps(card, indent=2))
+    auc = card["test_roc_auc"]
+    X_tr, _, _, _ = dataset()
     print(f"trained on {len(X_tr)} rows, test ROC AUC {auc:.5f}")
     print(f"saved -> models/model.joblib  and  models/model_card.json")
 

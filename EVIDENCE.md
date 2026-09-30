@@ -1,9 +1,11 @@
-# Tutorial 04 — Prometheus and Grafana: run evidence
+# Bonus 2 — historical Tutorial 04 evidence and monitoring extension
 
 DDM501 · Bonus 2 · Võ Minh Sang (25MS13286)
 
 The stack was run with `docker compose up --build` (API on :18000, Prometheus on :19090, Grafana on :13000), and
-every exercise in the tutorial was carried out against it. All numbers and screenshots below come from that run.
+the scenarios below were carried out against it. Sections 1–4 preserve the baseline run
+from 2026-09-29; its model and package versions precede the extension. New results
+are recorded separately in section 5.
 
 ## 1. The five questions, answered by the metrics
 
@@ -65,3 +67,44 @@ advance** (outcome, status code, model version), and never an id, a timestamp or
 | HighErrorRate | error share > 5% for 5m | A ratio, so 40 errors means the same thing at 100 and at 10k requests |
 | SlowPredictions | p95 > 50 ms for 10m | The tail, where the users who are actually suffering are |
 | MalignantShareShift | share moves > 15 points for 15m | Nothing broken, but the answers changed. This failure mode exists only in ML services |
+
+## 5. Extension verification — 2026-09-30
+
+Measured by [`scripts/verify_stack.py`](scripts/verify_stack.py) and
+[`scripts/verify_airflow.py`](scripts/verify_airflow.py), against the running
+Docker stack.
+
+| Check | Observed result | Evidence |
+|---|---|---|
+| Regression suite | 5 tests passed | [pytest.txt](evidence/extended/pytest.txt) |
+| Candidate rejection | Dummy AUC 0.5; no champion/serving change | [runtime-checks.json](evidence/extended/runtime-checks.json) |
+| Promotion and reload | Logistic AUC 0.99738; API version follows the promoted registry version | [runtime-checks.json](evidence/extended/runtime-checks.json) |
+| Normal inputs | 0/30 features drift; dataset drift false | [normal report](evidence/extended/normal-report.html) |
+| Inputs shifted 3 standard deviations | 30/30 features drift; dataset drift true | [drift report](evidence/extended/drift_3sigma-report.html) |
+| Delivery | Prometheus -> Alertmanager -> webhook; FIRING and RESOLVED received | [notifications.json](evidence/extended/notifications.json) |
+| Scraping | API, Evidently and Prometheus targets UP | [runtime-checks.json](evidence/extended/runtime-checks.json) |
+| Airflow health | Actual scheduler run succeeded | [airflow-checks.json](evidence/extended/airflow-checks.json) |
+| Airflow gate | Normal window skips retrain; shifted window triggers it | [airflow-checks.json](evidence/extended/airflow-checks.json) |
+| Triggered retrain | Scheduler completed the child DAG; API served registry version 8 in this run | [airflow-checks.json](evidence/extended/airflow-checks.json) |
+
+### Screenshots from this stack
+
+![Registry candidates and champion](evidence/extended/mlflow-registry.png)
+![Feature drift and serving version](evidence/extended/grafana-feature-drift.png)
+![Three Airflow DAGs](evidence/extended/airflow-dags.png)
+![Drift DAG run](evidence/extended/airflow-drift-run.png)
+
+The Airflow list retains an earlier failed verification attempt from setup.
+The exported run IDs identify the successful checks after the dependency and
+worker settings were corrected; the earlier history was not deleted.
+
+### Limits of these results
+
+- Telegram was **not executed**. All recorded delivery is `local`; forwarding
+  is supported only when explicitly enabled with private credentials.
+- The data are the supplied WDBC data; the drift experiment is a controlled
+  input shift, not evidence of drift in a deployed patient population.
+- Retraining repeats the fixed source/holdout evaluation. It proves orchestration,
+  gating and reload; it does not show that new population drift was corrected.
+- SQLite, local artifact storage and Airflow standalone are tutorial choices.
+  These results do not establish production scalability or availability.

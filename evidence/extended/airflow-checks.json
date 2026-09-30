@@ -1,0 +1,47 @@
+{
+  "timestamp_utc": "2026-09-30T01:08:48.710284+00:00",
+  "health": {
+    "dag_id": "service_health_check",
+    "run_id": "verify-20260930T010848Z-health",
+    "state": "success",
+    "tasks": {
+      "check_services": "success"
+    }
+  },
+  "rejected_candidate": {
+    "dag_id": "model_retrain",
+    "run_id": "verify-20260930T010848Z-dummy",
+    "state": "success",
+    "tasks": {
+      "train_gate_promote_reload": "success"
+    }
+  },
+  "normal": {
+    "dag_id": "drift_monitoring",
+    "run_id": "verify-20260930T010848Z-normal",
+    "state": "success",
+    "tasks": {
+      "analyze": "success",
+      "needs_retrain": "skipped",
+      "trigger_retrain": "skipped"
+    }
+  },
+  "drift": {
+    "dag_id": "drift_monitoring",
+    "run_id": "verify-20260930T010848Z-drift",
+    "state": "success",
+    "tasks": {
+      "analyze": "success",
+      "needs_retrain": "success",
+      "trigger_retrain": "success"
+    }
+  },
+  "triggered_retrain": [
+    {
+      "run_id": "manual__2026-09-30T01:09:17.534248+00:00",
+      "state": "success"
+    }
+  ],
+  "serving_version": "8",
+  "success": true
+}
